@@ -1,0 +1,238 @@
+import fs from "node:fs";
+import path from "node:path";
+import {
+  createPublicClient,
+  createWalletClient,
+  keccak256,
+  parseUnits,
+  http,
+  toBytes,
+} from "viem";
+import {
+  generatePrivateKey,
+  privateKeyToAccount,
+} from "viem/accounts";
+import { baseSepolia } from "viem/chains";
+
+const ROOT = process.cwd();
+const DEPLOYMENT_PATH = path.join(
+  ROOT,
+  ".secrets",
+  "base-sepolia-deployment.json",
+);
+const SECRET_PATH = path.join(ROOT, ".secrets", "testnet-deployer.json");
+const RPC = process.env.BASE_SEPOLIA_RPC ?? "https://sepolia.base.org";
+
+for (const file of [DEPLOYMENT_PATH, SECRET_PATH]) {
+  if (!fs.existsSync(file)) throw new Error(`Missing ${file}`);
+}
+
+const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT_PATH, "utf8"));
+if (deployment.chainId !== baseSepolia.id) {
+  throw new Error(`Refusing smoke test on chain ${deployment.chainId}`);
+}
+
+const creatorSecret = JSON.parse(fs.readFileSync(SECRET_PATH, "utf8"));
+const creator = privateKeyToAccount(creatorSecret.privateKey);
+const claimant = privateKeyToAccount(generatePrivateKey());
+
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(RPC),
+});
+const creatorWallet = createWalletClient({
+  account: creator,
+  chain: baseSepolia,
+  transport: http(RPC),
+});
+const claimantWallet = createWalletClient({
+  account: claimant,
+  chain: baseSepolia,
+  transport: http(RPC),
+});
+
+const chainId = await publicClient.getChainId();
+if (chainId !== baseSepolia.id) {
+  throw new Error(`Refusing smoke test: expected chain 84532, got ${chainId}`);
+}
+
+const usdcAbi = [
+  {
+    type: "function",
+    name: "mint",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+];
+
+const proofDropAbi = [
+  {
+    type: "function",
+    name: "createDrop",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "amount", type: "uint96" },
+      { name: "challengeHash", type: "bytes32" },
+      { name: "challengeURI", type: "string" },
+    ],
+    outputs: [{ name: "dropId", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "claim",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "dropId", type: "uint256" },
+      { name: "proofHash", type: "bytes32" },
+      { name: "proofURI", type: "string" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "approveAndPay",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "dropId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "nextDropId",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+];
+
+async function wait(hash) {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error(`Transaction failed: ${hash}`);
+  return receipt;
+}
+
+const oneUsdc = parseUnits("1", 6);
+
+console.log(`creator  ${creator.address}`);
+console.log(`claimant ${claimant.address}`);
+
+const nextDropId = await publicClient.readContract({
+  address: deployment.proofDrop,
+  abi: proofDropAbi,
+  functionName: "nextDropId",
+});
+
+console.log("funding claimant with test gas...");
+await wait(
+  await creatorWallet.sendTransaction({
+    to: claimant.address,
+    value: 5_000_000_000_000n,
+  }),
+);
+
+console.log("minting creator test USDC...");
+await wait(
+  await creatorWallet.writeContract({
+    address: deployment.mockUsdc,
+    abi: usdcAbi,
+    functionName: "mint",
+    args: [creator.address, oneUsdc],
+  }),
+);
+
+console.log("approving escrow...");
+await wait(
+  await creatorWallet.writeContract({
+    address: deployment.mockUsdc,
+    abi: usdcAbi,
+    functionName: "approve",
+    args: [deployment.proofDrop, oneUsdc],
+  }),
+);
+
+const challenge = "Smoke: ship one tiny useful Base feature";
+console.log(`creating drop #${nextDropId}...`);
+await wait(
+  await creatorWallet.writeContract({
+    address: deployment.proofDrop,
+    abi: proofDropAbi,
+    functionName: "createDrop",
+    args: [
+      oneUsdc,
+      keccak256(toBytes(challenge)),
+      "data:text/plain,Smoke%20test",
+    ],
+  }),
+);
+
+console.log("claiming from second wallet...");
+await wait(
+  await claimantWallet.writeContract({
+    address: deployment.proofDrop,
+    abi: proofDropAbi,
+    functionName: "claim",
+    args: [
+      nextDropId,
+      keccak256(toBytes("https://example.com/proofdrop-smoke")),
+      "https://example.com/proofdrop-smoke",
+    ],
+  }),
+);
+
+console.log("creator approving + paying...");
+await wait(
+  await creatorWallet.writeContract({
+    address: deployment.proofDrop,
+    abi: proofDropAbi,
+    functionName: "approveAndPay",
+    args: [nextDropId],
+  }),
+);
+
+const claimantBalance = await publicClient.readContract({
+  address: deployment.mockUsdc,
+  abi: usdcAbi,
+  functionName: "balanceOf",
+  args: [claimant.address],
+});
+
+if (claimantBalance !== oneUsdc) {
+  throw new Error(
+    `Smoke test payout mismatch: expected ${oneUsdc}, got ${claimantBalance}`,
+  );
+}
+
+console.log(
+  JSON.stringify(
+    {
+      ok: true,
+      chainId,
+      dropId: nextDropId.toString(),
+      creator: creator.address,
+      claimant: claimant.address,
+      payout: "1 test USDC",
+    },
+    null,
+    2,
+  ),
+);

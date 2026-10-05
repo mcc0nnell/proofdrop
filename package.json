@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:contracts": "hardhat test nodejs",
-    "check": "npm run lint && npm run test:contracts && npm run build"
+    "check": "npm run lint && npm run test:contracts && npm run build",
+    "deploy:sepolia": "hardhat compile && node scripts/deploy-sepolia.mjs",
+    "smoke:sepolia": "node scripts/smoke-sepolia.mjs"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.3.0",
