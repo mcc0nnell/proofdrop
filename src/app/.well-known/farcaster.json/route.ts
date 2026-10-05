@@ -1,5 +1,7 @@
 const root = process.env.NEXT_PUBLIC_URL ?? "https://proofdrop.vercel.app";
 
+export const dynamic = "force-static";
+
 export async function GET() {
   return Response.json({
     accountAssociation: {
