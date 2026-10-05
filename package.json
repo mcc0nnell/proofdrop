@@ -6,21 +6,36 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:contracts": "hardhat test nodejs",
+    "check": "npm run lint && npm run test:contracts && npm run build"
   },
   "dependencies": {
+    "@farcaster/miniapp-sdk": "^0.3.0",
+    "@farcaster/miniapp-wagmi-connector": "^2.0.0",
+    "@tanstack/react-query": "^5.104.1",
+    "lucide-react": "^1.52.0",
     "next": "16.3.8",
+    "ox": "^1.8.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "viem": "^2.57.3",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "hardhat": "^3.18.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "type": "module",
+  "overrides": {
+    "ws@>=8.0.0 <8.21.0": "8.22.0"
   }
 }
