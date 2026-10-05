@@ -1,0 +1,25 @@
+{
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "deploymentBlock": 47721834,
+  "deployer": "0xA365ab62FDDaCabb5c9ae6c4533e2104DCE98d63",
+  "mockUsdc": "0xdc67aebae60fe2c12c23e8c80aa75fd17d446f4f",
+  "proofDrop": "0x2684e079f3901c7551df64ddd9a09231e0c0b5b3",
+  "transactions": {
+    "mockUsdc": "0x2271d9c73df1d1b5fb91c65ebfbd92994031122f5fc9874facab76f7139bb817",
+    "proofDrop": "0x2999b995dd1eafe0639c139c175ac8239050e69e122fc15f99f84e1c74ccea61",
+    "recoveredDrop1Payout": "0xbf94d0b7179f5ada60a765976e6ab833c67d81ada8b1d4c4b33869f23ee58f0c"
+  },
+  "smoke": {
+    "drop1": {
+      "status": "Paid",
+      "claimant": "0x9A500b60f8e3f963198214e64dDB1Ea168F5E1d3",
+      "payoutTestUsdc": "1"
+    },
+    "drop2": {
+      "status": "Paid",
+      "claimant": "0x71B666744db89076324A6371B32aa97D3016723F",
+      "payoutTestUsdc": "1"
+    }
+  }
+}
