@@ -10,7 +10,8 @@
     "test:contracts": "hardhat test nodejs",
     "check": "npm run lint && npm run test:contracts && npm run build",
     "deploy:sepolia": "hardhat compile && node scripts/deploy-sepolia.mjs",
-    "smoke:sepolia": "node scripts/smoke-sepolia.mjs"
+    "smoke:sepolia": "node scripts/smoke-sepolia.mjs",
+    "resume:sepolia": "node scripts/resume-sepolia.mjs"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.3.0",
